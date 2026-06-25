@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Structured Learning Tracker",
+  "description": "Create custom learning curricula, generate structured modules, and track daily progress with interactive task completion and stats.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
