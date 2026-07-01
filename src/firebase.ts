@@ -1,3 +1,4 @@
+import { initializeApp } from "firebase/app"; // 👈 FIXED: Added this missing import
 import {
   getAuth,
   browserLocalPersistence,
@@ -5,11 +6,10 @@ import {
   onAuthStateChanged,
   signInAnonymously,
   signOut,
-  createUserWithEmailAndPassword, // 👈 Type this line in
-  signInWithEmailAndPassword,     // 👈 Type this line in
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
   type User,
 } from "firebase/auth";
-
 import { 
   getFirestore, 
   collection, 
@@ -35,54 +35,34 @@ const firebaseConfig = {
   appId: "1:918984767974:web:ef71e73bb68cd70799fe27"
 };
 
-
 // ── Initialize Firebase app ────────────────────────────────────────────────
 const app = initializeApp(firebaseConfig);
 
 // ── Firestore ──────────────────────────────────────────────────────────────
 export const db = getFirestore(app);
 
-// ── Firebase Auth — browserLocalPersistence so sessions survive mobile ────
-// webview restarts and tab refreshes without requiring re-login.
+// ── Firebase Auth ──────────────────────────────────────────────────────────
 export const auth = getAuth(app);
 
-// Apply localStorage persistence immediately (async; safe to call at module load)
+// Apply localStorage persistence immediately
 setPersistence(auth, browserLocalPersistence).catch((err) => {
   console.warn("Firebase Auth: could not set browserLocalPersistence:", err?.message);
 });
 
-/**
- * Subscribe to Firebase Auth state changes.
- * Returns the unsubscribe function — call it in a useEffect cleanup.
- *
- * Usage:
- *   const unsub = onFirebaseAuthChange((user) => setCurrentUser(user));
- *   return () => unsub();
- */
 export function onFirebaseAuthChange(callback: (user: User | null) => void): () => void {
   return onAuthStateChanged(auth, callback);
 }
 
-/**
- * Sign in anonymously with Firebase Auth.
- * Returns the stable uid that persists across sessions via browserLocalPersistence.
- * Falls back gracefully — if Firebase is unreachable the caller handles the error.
- */
 export async function firebaseSignIn(): Promise<string> {
   const credential = await signInAnonymously(auth);
   return credential.user.uid;
 }
 
-/**
- * Sign out the current Firebase user and clear the persisted session.
- */
 export async function firebaseSignOut(): Promise<void> {
   await signOut(auth);
 }
 
-// ── User Profile — full app state stored per authenticated user ────────────
-// Collection: userProfiles/{uid}  (one document per user, replaces localStorage blob)
-
+// ── User Profile ───────────────────────────────────────────────────────────
 export interface UserProfileData {
   uid: string;
   userName: string;
@@ -129,7 +109,6 @@ export async function getUserProfile(uid: string): Promise<UserProfileData | nul
   }
 }
 
-// COLLECTION NAMES
 const CURRICULA_COL = "curricula";
 const STUDY_LOGS_COL = "studyLogs";
 const STATS_COL = "userStats";
@@ -174,16 +153,12 @@ export async function addStudyLog(log: StudyLog): Promise<void> {
 
 export async function getUserStudyLogs(userId: string): Promise<StudyLog[]> {
   try {
-    const q = query(
-      collection(db, STUDY_LOGS_COL), 
-      where("userId", "==", userId)
-    );
+    const q = query(collection(db, STUDY_LOGS_COL), where("userId", "==", userId));
     const snap = await getDocs(q);
     const list: StudyLog[] = [];
     snap.forEach((d) => {
       list.push(d.data() as StudyLog);
     });
-    // Sort client-side by date descending
     return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   } catch (err) {
     console.error("Error fetching study logs:", err);
@@ -210,6 +185,7 @@ export async function getUserStats(userId: string): Promise<UserStats | null> {
 export async function saveUserStats(stats: UserStats): Promise<void> {
   await setDoc(doc(db, STATS_COL, stats.userId), stats);
 }
+
 /**
  * Sign up a new user using Email and Password
  */
@@ -225,4 +201,3 @@ export async function firebaseSignInWithEmail(email: string, password: string): 
   const credential = await signInWithEmailAndPassword(auth, email, password);
   return credential.user.uid;
 }
-
