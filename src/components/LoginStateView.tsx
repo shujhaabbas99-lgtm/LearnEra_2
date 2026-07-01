@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { LogIn, UserPlus, ArrowRight, User, Mail, Lock, Quote, Eye, EyeOff } from "lucide-react";
 import { motion } from "motion/react";
-import { firebaseSignInWithEmail, firebaseSignUpWithEmail, firebaseGetUserProfile } from "../firebase";
+// ── FIXED: Lowercase imports and used the correct getUserProfile name ───────
+import { firebaseSignInWithEmail, firebaseSignUpWithEmail, getUserProfile } from "../firebase";
 
 interface LoginStateViewProps {
   onLogin: (name: string, email: string, uid: string) => void;
@@ -53,7 +54,7 @@ const SCIENCE_QUOTES: QuoteItem[] = [
 
 export default function LoginStateView({ onLogin }: LoginStateViewProps) {
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
-  
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -87,22 +88,22 @@ export default function LoginStateView({ onLogin }: LoginStateViewProps) {
     setIsProcessing(true);
 
     try {
-  let uid = "";
-  let resolvedName = name.trim();
+      let uid = "";
+      let resolvedName = name.trim();
 
-  if (authMode === "signup") {
-    uid = await firebaseSignUpWithEmail(email.trim(), password);
-  } else {
-    uid = await firebaseSignInWithEmail(email.trim(), password);
-    const profile = await firebaseGetUserProfile(uid);
-    resolvedName = profile?.username || "Learner";
-  }
+      if (authMode === "signup") {
+        uid = await firebaseSignUpWithEmail(email.trim(), password);
+      } else {
+        uid = await firebaseSignInWithEmail(email.trim(), password);
+        // ── FIXED: Calling the correct function and matching the camelCase profile field ──
+        const profile = await getUserProfile(uid);
+        resolvedName = profile?.userName || "Learner";
+      }
 
-  onLogin(resolvedName, email.trim(), uid);
-} catch (err: any) {
-
+      onLogin(resolvedName, email.trim(), uid);
+    } catch (err: any) {
       console.error("Firebase auth handler failed:", err);
-      
+
       if (err?.code === "auth/email-already-in-use") {
         setError("This email address is already registered. Please switch to Sign In.");
       } else if (err?.code === "auth/invalid-credential" || err?.code === "auth/wrong-password") {
@@ -141,7 +142,7 @@ export default function LoginStateView({ onLogin }: LoginStateViewProps) {
           {authMode === "signin" ? "LOGIN_STATE GATEWAY" : "ACCOUNT_REGISTRATION_GATEWAY"}
         </p>
       </div>
-     
+
       {/* Rotating Science Quote Area */}
       {quote.text && (
         <motion.div 
@@ -163,7 +164,7 @@ export default function LoginStateView({ onLogin }: LoginStateViewProps) {
 
       {/* Login Gate Form */}
       <form onSubmit={handleSubmit} className="space-y-4 text-left" id="login-credentials-form">
-        
+
         {/* Name Input — Sign Up Only */}
         {authMode === "signup" && (
           <motion.div 
