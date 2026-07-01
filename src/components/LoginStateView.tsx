@@ -56,7 +56,7 @@ export default function LoginStateView({ onLogin }: LoginStateViewProps) {
   const [email, setEmail] = useState("");
   const [quote, setQuote] = useState<QuoteItem>({ text: "", author: "" });
   const [error, setError] = useState("");
-
+  const [isSigningIn, setIsSigningIn] = useState(false);
   // Select a random quote each time the screen loads
   useEffect(() => {
     const randomIndex = Math.floor(Math.random() * SCIENCE_QUOTES.length);
