@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { LogIn, ArrowRight, Sparkles, User, Mail, Quote } from "lucide-react";
 import { motion } from "motion/react";
+import { firebaseSignIn } from "../firebase";
 
 interface LoginStateViewProps {
-  onLogin: (name: string, email: string) => void;
+  onLogin: (name: string, email: string, uid: string) => void;
 }
 
 interface QuoteItem {
