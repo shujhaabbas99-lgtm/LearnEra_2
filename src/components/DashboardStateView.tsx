@@ -1045,3 +1045,22 @@ export default function DashboardStateView({
     </motion.div>
   );
 }
+import { firebaseSignOut } from "../firebase";
+
+// Insert this right underneath the closing div of the Danger Zone container:
+<div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800 text-left">
+  <button
+    type="button"
+    onClick={async () => {
+      try {
+        await firebaseSignOut();
+        window.location.reload(); // Instantly boots the stale state and forces the Login page
+      } catch (err) {
+        console.error("Failed to safely sign out:", err);
+      }
+    }}
+    className="w-full flex items-center justify-center gap-2 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-300 rounded-xl font-bold text-xs transition-all cursor-pointer"
+  >
+    Sign Out of Account
+  </button>
+</div>
