@@ -27,13 +27,14 @@ import {
 import { Curriculum, StudyLog, UserStats } from "./types";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCWDemw3UgxMYqesHNheilrk94u7w3vMv4",
-  authDomain: "learnerera-10597.firebaseapp.com",
-  projectId: "learnerera-10597",
-  storageBucket: "learnerera-10597.firebasestorage.app",
-  messagingSenderId: "918984767974",
-  appId: "1:918984767974:web:ef71e73bb68cd70799fe27"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
+
 
 // ── Initialize Firebase app ────────────────────────────────────────────────
 const app = initializeApp(firebaseConfig);
