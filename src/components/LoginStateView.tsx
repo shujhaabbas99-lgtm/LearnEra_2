@@ -63,14 +63,23 @@ export default function LoginStateView({ onLogin }: LoginStateViewProps) {
     setQuote(SCIENCE_QUOTES[randomIndex]);
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       setError("Please enter your name to start learning.");
       return;
     }
     setError("");
-    onLogin(name.trim(), email.trim());
+    setIsSigningIn(true);
+    try {
+      const uid = await firebaseSignIn();
+      onLogin(name.trim(), email.trim(), uid);
+    } catch (err) {
+      console.error("Firebase sign-in failed:", err);
+      setError("Couldn't connect right now — please try again.");
+    } finally {
+      setIsSigningIn(false);
+    }
   };
 
   return (
