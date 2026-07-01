@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { LogIn, ArrowRight, Sparkles, User, Mail, Quote } from "lucide-react";
+import { LogIn, UserPlus, ArrowRight, User, Mail, Lock, Quote, Eye, EyeOff } from "lucide-react";
 import { motion } from "motion/react";
-import { firebaseSignIn } from "../firebase";
+import { firebaseSignInWithEmail, firebaseSignUpWithEmail, firebaseGetUserProfile } from "../firebase";
 
 interface LoginStateViewProps {
   onLogin: (name: string, email: string, uid: string) => void;
@@ -52,12 +52,16 @@ const SCIENCE_QUOTES: QuoteItem[] = [
 ];
 
 export default function LoginStateView({ onLogin }: LoginStateViewProps) {
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [quote, setQuote] = useState<QuoteItem>({ text: "", author: "" });
   const [error, setError] = useState("");
-  const [isSigningIn, setIsSigningIn] = useState(false);
-  // Select a random quote each time the screen loads
+  const [isProcessing, setIsProcessing] = useState(false);
+
   useEffect(() => {
     const randomIndex = Math.floor(Math.random() * SCIENCE_QUOTES.length);
     setQuote(SCIENCE_QUOTES[randomIndex]);
@@ -65,20 +69,53 @@ export default function LoginStateView({ onLogin }: LoginStateViewProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      setError("Please enter your name to start learning.");
+
+    if (authMode === "signup" && !name.trim()) {
+      setError("Please enter your name to build your curriculum profile.");
       return;
     }
+    if (!email.trim() || !password.trim()) {
+      setError("Please fill in both email and password fields.");
+      return;
+    }
+    if (password.length < 6) {
+      setError("Security requirement: Password must be at least 6 characters long.");
+      return;
+    }
+
     setError("");
-    setIsSigningIn(true);
+    setIsProcessing(true);
+
     try {
-      const uid = await firebaseSignIn();
-      onLogin(name.trim(), email.trim(), uid);
-    } catch (err) {
-      console.error("Firebase sign-in failed:", err);
-      setError("Couldn't connect right now — please try again.");
+  let uid = "";
+  let resolvedName = name.trim();
+
+  if (authMode === "signup") {
+    uid = await firebaseSignUpWithEmail(email.trim(), password);
+  } else {
+    uid = await firebaseSignInWithEmail(email.trim(), password);
+    const profile = await firebaseGetUserProfile(uid);
+    resolvedName = profile?.name || "Learner";
+  }
+
+  onLogin(resolvedName, email.trim(), uid);
+} catch (err: any) {
+
+      onLogin(authMode === "signup" ? name.trim() : "Learner", email.trim(), uid);
+    } catch (err: any) {
+      console.error("Firebase auth handler failed:", err);
+      
+      if (err?.code === "auth/email-already-in-use") {
+        setError("This email address is already registered. Please switch to Sign In.");
+      } else if (err?.code === "auth/invalid-credential" || err?.code === "auth/wrong-password") {
+        setError("Invalid email or password credentials. Please verify and try again.");
+      } else if (err?.code === "auth/user-not-found") {
+        setError("No account found with this email. Try switching to Sign Up.");
+      } else {
+        setError(err?.message || "Authentication checkpoint failed — please retry.");
+      }
     } finally {
-      setIsSigningIn(false);
+      setIsProcessing(false);
     }
   };
 
@@ -93,16 +130,20 @@ export default function LoginStateView({ onLogin }: LoginStateViewProps) {
       {/* Brand Header */}
       <div className="text-center space-y-2">
         <div className="mx-auto h-12 w-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100/60 dark:border-indigo-900/60 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-sm shadow-indigo-100/55 dark:shadow-none">
-          <LogIn size={22} className="text-indigo-600 dark:text-indigo-400" />
+          {authMode === "signin" ? (
+            <LogIn size={22} className="text-indigo-600 dark:text-indigo-400" />
+          ) : (
+            <UserPlus size={22} className="text-indigo-600 dark:text-indigo-400" />
+          )}
         </div>
         <h2 className="font-sans font-extrabold text-xl text-slate-900 dark:text-white tracking-tight">
-          Welcome to Syllabus Desk
+          {authMode === "signin" ? "Welcome to Syllabus Desk" : "Create Your Account"}
         </h2>
-        <p className="text-slate-400 dark:text-slate-500 text-xs font-semibold uppercase tracking-wider">
-          LOGIN_STATE GATEWAY
+        <p className="text-slate-400 dark:text-slate-500 text-[10px] font-semibold uppercase tracking-wider">
+          {authMode === "signin" ? "LOGIN_STATE GATEWAY" : "ACCOUNT_REGISTRATION_GATEWAY"}
         </p>
       </div>
-
+     
       {/* Rotating Science Quote Area */}
       {quote.text && (
         <motion.div 
@@ -112,11 +153,11 @@ export default function LoginStateView({ onLogin }: LoginStateViewProps) {
           className="relative bg-slate-50 dark:bg-slate-950/40 border border-slate-100 dark:border-slate-850 p-4 rounded-2xl text-left"
           id="motivational-quote-box"
         >
-          <Quote size={16} className="text-indigo-200 dark:text-indigo-900 absolute top-3 right-3 rotate-185" />
-          <p className="text-[11px] md:text-[12px] italic text-slate-605 dark:text-slate-300 leading-relaxed font-medium font-sans pr-6">
+          <Quote size={16} className="text-indigo-200 dark:text-indigo-900 absolute top-3 right-3 rotate-180" />
+          <p className="text-[11px] md:text-[12px] italic text-slate-600 dark:text-slate-300 leading-relaxed font-medium font-sans pr-6">
             "{quote.text}"
           </p>
-          <p className="text-[10px] text-indigo-605 dark:text-indigo-400 font-mono font-bold mt-2 text-right">
+          <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-mono font-bold mt-2 text-right">
             — {quote.author}
           </p>
         </motion.div>
@@ -124,20 +165,50 @@ export default function LoginStateView({ onLogin }: LoginStateViewProps) {
 
       {/* Login Gate Form */}
       <form onSubmit={handleSubmit} className="space-y-4 text-left" id="login-credentials-form">
+        
+        {/* Name Input — Sign Up Only */}
+        {authMode === "signup" && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="space-y-1.5"
+          >
+            <label htmlFor="login-name" className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+              Your Name
+            </label>
+            <div className="relative">
+              <User size={14} className="absolute left-3.5 top-3.5 text-slate-400" />
+              <input
+                id="login-name"
+                type="text"
+                required={authMode === "signup"}
+                placeholder="e.g. Richard Feynman"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  if (error) setError("");
+                }}
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 placeholder-slate-400 text-slate-800 text-xs font-medium rounded-xl focus:outline-hidden focus:bg-white focus:border-indigo-500 transition-all"
+              />
+            </div>
+          </motion.div>
+        )}
+
+        {/* Email Field */}
         <div className="space-y-1.5">
-          <label htmlFor="login-name" className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
-            Your Name
+          <label htmlFor="login-email" className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+            Email Address
           </label>
           <div className="relative">
-            <User size={14} className="absolute left-3.5 top-3.5 text-slate-400" />
+            <Mail size={14} className="absolute left-3.5 top-3.5 text-slate-400" />
             <input
-              id="login-name"
-              type="text"
+              id="login-email"
+              type="email"
               required
-              placeholder="e.g. Richard Feynman"
-              value={name}
+              placeholder="e.g. richard@feynman.edu"
+              value={email}
               onChange={(e) => {
-                setName(e.target.value);
+                setEmail(e.target.value);
                 if (error) setError("");
               }}
               className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 placeholder-slate-400 text-slate-800 text-xs font-medium rounded-xl focus:outline-hidden focus:bg-white focus:border-indigo-500 transition-all"
@@ -145,38 +216,73 @@ export default function LoginStateView({ onLogin }: LoginStateViewProps) {
           </div>
         </div>
 
+        {/* Password Field */}
         <div className="space-y-1.5">
-          <label htmlFor="login-email" className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
-            Email Address (Optional)
+          <label htmlFor="login-password" className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+            Password
           </label>
           <div className="relative">
-            <Mail size={14} className="absolute left-3.5 top-3.5 text-slate-400" />
+            <Lock size={14} className="absolute left-3.5 top-3.5 text-slate-400" />
             <input
-              id="login-email"
-              type="email"
-              placeholder="e.g. richard@feynman.edu"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 placeholder-slate-400 text-slate-800 text-xs font-medium rounded-xl focus:outline-hidden focus:bg-white focus:border-indigo-500 transition-all"
+              id="login-password"
+              type={showPassword ? "text" : "password"}
+              required
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (error) setError("");
+              }}
+              className="w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-200 placeholder-slate-400 text-slate-800 text-xs font-medium rounded-xl focus:outline-hidden focus:bg-white focus:border-indigo-500 transition-all"
             />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-3.5 text-slate-400 hover:text-slate-600 focus:outline-hidden cursor-pointer"
+            >
+              {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
           </div>
         </div>
 
+        {/* Error Notification */}
         {error && (
           <p className="text-[11px] text-rose-600 font-semibold text-center italic">
             {error}
           </p>
         )}
 
+        {/* Submit Button */}
         <button
-  type="submit"
-  disabled={isSigningIn}
-  className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-100 transition-all cursor-pointer"
-  id="btn-login-submit"
->
-  <span>{isSigningIn ? "Signing in…" : "Start Learning"}</span>
-  <ArrowRight size={14} />
-</button>
+          type="submit"
+          disabled={isProcessing}
+          className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-100 transition-all cursor-pointer"
+          id="btn-login-submit"
+        >
+          <span>
+            {isProcessing 
+              ? (authMode === "signin" ? "Signing in…" : "Creating Account…") 
+              : (authMode === "signin" ? "Start Learning" : "Register & Start")}
+          </span>
+          <ArrowRight size={14} />
+        </button>
+
+        {/* Switcher Link */}
+        <div className="text-center pt-2">
+          <button
+            type="button"
+            onClick={() => {
+              setAuthMode(authMode === "signin" ? "signup" : "signin");
+              setError("");
+            }}
+            className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold hover:underline cursor-pointer bg-transparent border-0 outline-hidden"
+          >
+            {authMode === "signin" 
+              ? "New to Syllabus Desk? Create an account" 
+              : "Already have an account? Sign In"}
+          </button>
+        </div>
+
       </form>
     </motion.div>
   );
