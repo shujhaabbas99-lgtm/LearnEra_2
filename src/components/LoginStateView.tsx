@@ -169,13 +169,14 @@ export default function LoginStateView({ onLogin }: LoginStateViewProps) {
         )}
 
         <button
-          type="submit"
-          className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-100 transition-all cursor-pointer"
-          id="btn-login-submit"
-        >
-          <span>Start Learning</span>
-          <ArrowRight size={14} />
-        </button>
+  type="submit"
+  disabled={isSigningIn}
+  className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl font-bold text-xs shadow-md shadow-indigo-100 transition-all cursor-pointer"
+  id="btn-login-submit"
+>
+  <span>{isSigningIn ? "Signing in…" : "Start Learning"}</span>
+  <ArrowRight size={14} />
+</button>
       </form>
     </motion.div>
   );
