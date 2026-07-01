@@ -1,4 +1,3 @@
-import { initializeApp } from "firebase/app";
 import {
   getAuth,
   browserLocalPersistence,
@@ -6,8 +5,11 @@ import {
   onAuthStateChanged,
   signInAnonymously,
   signOut,
+  createUserWithEmailAndPassword, // 👈 Type this line in
+  signInWithEmailAndPassword,     // 👈 Type this line in
   type User,
 } from "firebase/auth";
+
 import { 
   getFirestore, 
   collection, 
@@ -24,16 +26,15 @@ import {
 } from "firebase/firestore";
 import { Curriculum, StudyLog, UserStats } from "./types";
 
-// ── Firebase project configuration ────────────────────────────────────────
-// Project: cultivated-host-2k91c (managed via Google AI Studio)
 const firebaseConfig = {
-  apiKey: "AIzaSyCIOXv6wwqeOpSwHc5O-Xrni1-selrYuDk",
-  authDomain: "cultivated-host-2k91c.firebaseapp.com",
-  projectId: "cultivated-host-2k91c",
-  storageBucket: "cultivated-host-2k91c.firebasestorage.app",
-  messagingSenderId: "327093382651",
-  appId: "1:327093382651:web:e97f6e5c720bb5f9c72f5e"
+  apiKey: "AIzaSyCWDemw3UgxMYqesHNheilrk94u7w3vMv4",
+  authDomain: "learnerera-10597.firebaseapp.com",
+  projectId: "learnerera-10597",
+  storageBucket: "learnerera-10597.firebasestorage.app",
+  messagingSenderId: "918984767974",
+  appId: "1:918984767974:web:ef71e73bb68cd70799fe27"
 };
+
 
 // ── Initialize Firebase app ────────────────────────────────────────────────
 const app = initializeApp(firebaseConfig);
@@ -209,3 +210,19 @@ export async function getUserStats(userId: string): Promise<UserStats | null> {
 export async function saveUserStats(stats: UserStats): Promise<void> {
   await setDoc(doc(db, STATS_COL, stats.userId), stats);
 }
+/**
+ * Sign up a new user using Email and Password
+ */
+export async function firebaseSignUpWithEmail(email: string, password: string): Promise<string> {
+  const credential = await createUserWithEmailAndPassword(auth, email, password);
+  return credential.user.uid;
+}
+
+/**
+ * Log in an existing user using Email and Password
+ */
+export async function firebaseSignInWithEmail(email: string, password: string): Promise<string> {
+  const credential = await signInWithEmailAndPassword(auth, email, password);
+  return credential.user.uid;
+}
+
