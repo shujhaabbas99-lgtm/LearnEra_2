@@ -95,7 +95,7 @@ export default function LoginStateView({ onLogin }: LoginStateViewProps) {
   } else {
     uid = await firebaseSignInWithEmail(email.trim(), password);
     const profile = await firebaseGetUserProfile(uid);
-    resolvedName = profile?.name || "Learner";
+    resolvedName = profile?.username || "Learner";
   }
 
   onLogin(resolvedName, email.trim(), uid);
