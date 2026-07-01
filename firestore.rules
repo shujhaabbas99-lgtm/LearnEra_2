@@ -1,0 +1,60 @@
+rules_version = '2';
+
+// Lernera Academic — Firestore Security Rules
+//
+// Ownership model:
+//   userProfiles/{userId}  — document ID is the Firebase Auth uid
+//   userStats/{userId}     — document ID is the Firebase Auth uid
+//   curricula/{docId}      — document contains a `userId` field
+//   studyLogs/{docId}      — document contains a `userId` field
+//
+// All other paths are denied by the catch-all rule at the bottom.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── User Profiles ──────────────────────────────────────────────────────
+    // Stores the full app state blob (quizHistory, topicStatuses, etc.).
+    // Keyed directly by the Firebase Auth uid so the path itself enforces ownership.
+    match /userProfiles/{userId} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == userId;
+    }
+
+    // ── User Stats ─────────────────────────────────────────────────────────
+    // Keyed by Firebase Auth uid — same ownership pattern as userProfiles.
+    match /userStats/{userId} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == userId;
+    }
+
+    // ── Curricula ──────────────────────────────────────────────────────────
+    // Document ID is an opaque generated id; ownership is carried in the
+    // `userId` field on the document body.
+    //
+    // read / update / delete: compare against the stored field on the existing doc
+    // create: compare against the field the client is trying to write
+    match /curricula/{docId} {
+      allow read, update, delete: if request.auth != null
+                                  && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.userId;
+    }
+
+    // ── Study Logs ─────────────────────────────────────────────────────────
+    // Same pattern as curricula — opaque document id, ownership in `userId` field.
+    match /studyLogs/{docId} {
+      allow read, update, delete: if request.auth != null
+                                  && request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.userId;
+    }
+
+    // ── Deny everything else ───────────────────────────────────────────────
+    // Any collection or subcollection not matched above is inaccessible to
+    // all clients, including authenticated ones.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

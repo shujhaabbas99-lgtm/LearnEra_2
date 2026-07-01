@@ -8,8 +8,9 @@ dotenv.config();
 
 async function startServer() {
   const app = express();
-  app.use(express.json());
-  const PORT = 3000;
+  app.use(express.json({ limit: "50mb" }));
+  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  const PORT = 5000;
 
   // Initialize Gemini client on server side
   const apiKey = process.env.GEMINI_API_KEY;
@@ -87,6 +88,37 @@ async function startServer() {
       }
     }
     throw new Error("Failed to generate content after retries");
+  }
+
+  // Helper: summarize oversized uploadedContent into a structural outline when it exceeds 4,000 words
+  async function buildSourceOutlineIfNeeded(
+    rawText: string,
+    topicName: string,
+    subjectName: string
+  ): Promise<{ content: string; wasOutlined: boolean }> {
+    const words = rawText.trim().split(/\s+/).filter((w: string) => w.length > 0);
+    if (words.length <= 4000) return { content: rawText, wasOutlined: false };
+    const sampleText = words.slice(0, 5000).join(" ");
+    const outlineResp = await generateWithRetry({
+      model: "gemini-3.5-flash",
+      contents: `Create a dense structural outline of the following source text.
+Topic: "${topicName}" — Subject: "${subjectName}"
+Include ALL key definitions, mechanisms, processes, named examples, and technical details in condensed outline form.
+Preserve domain-specific terminology exactly. Target 600–900 words.
+
+Source Text:
+"""
+${sampleText}
+"""`,
+      config: {
+        systemInstruction:
+          "You are a technical academic summarizer. Create dense outlines preserving all key academic concepts.",
+      },
+    });
+    return {
+      content: `[STRUCTURAL OUTLINE — derived from source material]\n\n${outlineResp.text || ""}`,
+      wasOutlined: true,
+    };
   }
 
   // API Route to generate structured curricula
@@ -211,13 +243,28 @@ async function startServer() {
 
       let groundingPrompt = "";
       if (uploadedContent) {
-        const maxChars = 20000;
-        const processedContent = uploadedContent.length > maxChars 
-          ? uploadedContent.substring(0, maxChars) + "\n[Content truncated for length limitations...]"
-          : uploadedContent;
+        const uploadedWords = uploadedContent.trim().split(/\s+/).filter((w: string) => w.length > 0);
+        let processedContent: string;
+        let groundingInstruction: string;
+
+        if (uploadedWords.length > 4000) {
+          // Summarize to a structural outline — too large for a single explanation pass
+          try {
+            const { content } = await buildSourceOutlineIfNeeded(uploadedContent, topic, subject);
+            processedContent = content;
+          } catch (_) {
+            // Fallback: truncate to 4,000 words if outline generation itself fails
+            processedContent = uploadedWords.slice(0, 4000).join(" ") + "\n[Content condensed for length.]";
+          }
+          groundingInstruction = `Base your explanation on the structural outline below derived from the source material. Instruction: "Base your explanation on this outline derived from the source material."`;
+        } else {
+          processedContent = uploadedContent;
+          groundingInstruction = `Base your explanation strictly on the provided source text. Do not introduce outside information not present in this text.`;
+        }
+
         groundingPrompt = `
         CRITICAL SOURCE-GROUNDING DIRECTIVE:
-        Base your explanation strictly on the provided source text. Do not introduce outside information not present in this text.
+        ${groundingInstruction}
         You MUST base all generated explanations, sub-concepts, connections, examples, and recap points STRICTLY and EXCLUSIVELY on the facts, concepts, and content present within the provided text segment below.
         Do NOT use general knowledge or introduce any external facts, details, or extra concepts that are not explicitly present in the provided text segment. Keep it perfectly grounded.
 
@@ -854,49 +901,66 @@ async function startServer() {
       if (!text) {
         return res.status(400).json({ error: "Document text content is required" });
       }
-
       if (!process.env.GEMINI_API_KEY) {
-        return res.status(400).json({ 
-          error: "Gemini API key is not configured in Secrets registry. Please add your key to run generation." 
+        return res.status(400).json({
+          error: "Gemini API key is not configured in Secrets registry. Please add your key to run generation.",
         });
       }
 
-      const maxChars = 35000;
-      const processedText = text.length > maxChars 
-        ? text.substring(0, maxChars) + "\n[Content truncated for length limitations...]"
-        : text;
+      const allWords = text.trim().split(/\s+/).filter((w: string) => w.length > 0);
+      const wordCount = allWords.length;
+
+      // Routing: standard (<8k), outline (8k-20k), large-capped fallback (>20k)
+      let processingMode: "standard" | "outline" | "large_capped";
+      let processedText: string;
+      let modeInstruction = "";
+
+      if (wordCount < 8000) {
+        processingMode = "standard";
+        processedText = text;
+      } else if (wordCount <= 20000) {
+        processingMode = "outline";
+        processedText = text; // Gemini Flash supports 1M tokens — full text is fine at this size
+        modeInstruction = `
+        STRUCTURAL ANALYSIS PRIORITY: This is a moderately long document.
+        Step 1 — Identify ALL chapter headings, section titles, numbered headings (e.g. 1.1, 1.2), and major structural dividers present in the text.
+        Step 2 — Use ONLY these structural markers as topic boundaries. Do not split on subject-matter shifts alone.
+        Each returned topic MUST correspond to a clearly delimited, structurally-marked section of the document.`;
+      } else {
+        // Document exceeds 20k words — frontend should use chunked endpoint instead
+        processingMode = "large_capped";
+        processedText = allWords.slice(0, 20000).join(" ");
+        modeInstruction = `NOTE: This document was capped at 20,000 words. Use chunked processing for the complete document.`;
+      }
 
       const prompt = `
         You are an expert document analyzer and syllabus structure parser.
         Your task is to analyze the following document content and identify distinct, logical study topics, chapters, or sections within it.
+        ${modeInstruction}
 
         Document Content:
         """
         ${processedText}
         """
 
-        Focus area requested by user (if any, use this to prioritize or customize boundaries):
+        Focus area requested by user (if any):
         "${focus || "Standard full parsing"}"
 
         INSTRUCTIONS:
-        1. Parse the document content and identify distinct structural markers if present, such as:
-           - Chapter titles
-           - Main section headings or subheadings
-           - Numbered headings (e.g. 1.1, 1.2)
-           Use these structural markers to define the boundaries of the topics.
-        2. If no clear headings or structural markers exist, fall back to splitting the content into logical topic chunks based on subject-matter shifts (e.g., where the discussion moves from one concept to another).
-        3. Aim to produce roughly 5 to 10 distinct topics for reasonably sized documents. If the document is very short, fewer topics are acceptable (e.g., 2 to 4).
-        4. CRITICAL RECALL MANDATE: For each topic, you MUST extract the exact slice of source text that belongs to it. Put this exact original source text in the 'sourceText' field of the topic.
-        5. DO NOT SUMMARIZE, PARAPHRASE, CONDENSE, OR SUBSTANTIALLY EXPAND THE TEXT. The output in 'sourceText' MUST be a sequential, highly verbatim subset of the original uploaded document's source text representing that topic's boundary.
-        6. Provide an elegant name, a short high-level description, and a realistic study duration (e.g., '15m', '20m', '30m') for each topic.
+        1. Parse the document and identify distinct structural markers if present (chapter titles, section headings, numbered headings). Use these to define topic boundaries.
+        2. If no clear headings exist, split based on logical subject-matter shifts.
+        3. Aim to produce roughly 5 to 10 distinct topics. For short documents, 2 to 4 is acceptable.
+        4. CRITICAL: For each topic, extract the EXACT verbatim slice of source text belonging to it into the 'sourceText' field.
+        5. DO NOT SUMMARIZE OR PARAPHRASE the sourceText. It must be a direct sequential subset of the original document text.
+        6. Provide an elegant name, short high-level description, and realistic study duration (e.g. '15m', '20m', '30m') for each topic.
       `;
 
-      // Use robust retry wrapper
       const response = await generateWithRetry({
-        model: 'gemini-3.5-flash',
+        model: "gemini-3.5-flash",
         contents: prompt,
         config: {
-          systemInstruction: "You are an educational tutor that organizes course topics by tracking and extracting structural sections of source documents, returning answers formatted in structured JSON.",
+          systemInstruction:
+            "You are an educational tutor that organizes course topics by tracking and extracting structural sections of source documents, returning answers formatted in structured JSON.",
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -909,26 +973,128 @@ async function startServer() {
                     name: { type: Type.STRING, description: "Name/title of the topic, section, or chapter." },
                     description: { type: Type.STRING, description: "Elegant description summarizing the topic focus based ONLY on its content." },
                     duration: { type: Type.STRING, description: "Realistic estimated study duration (e.g., '15m', '20m', '30m')." },
-                    sourceText: { type: Type.STRING, description: "The EXACT slice of original source text belonging to this topic. Do not condense, summarize, or paraphrase. Must be the original source words." }
+                    sourceText: { type: Type.STRING, description: "The EXACT slice of original source text belonging to this topic. Do not condense, summarize, or paraphrase." },
                   },
-                  required: ["name", "description", "duration", "sourceText"]
+                  required: ["name", "description", "duration", "sourceText"],
                 },
-                description: "List of identified distinct topics with their source text boundaries."
-              }
+                description: "List of identified distinct topics with their source text boundaries.",
+              },
             },
-            required: ["topics"]
-          }
-        }
+            required: ["topics"],
+          },
+        },
       });
 
       const responseText = response.text || "";
       const parsedData = JSON.parse(responseText.trim());
+
+      // Cap each topic's sourceText at 4,000 words so downstream explanation requests stay within limits
+      const SOURCE_WORD_CAP = 4000;
+      for (const topic of parsedData.topics || []) {
+        if (topic.sourceText) {
+          const stWords = topic.sourceText.trim().split(/\s+/);
+          if (stWords.length > SOURCE_WORD_CAP) {
+            topic.sourceText = stWords.slice(0, SOURCE_WORD_CAP).join(" ");
+            topic.sourceTextCapped = true;
+          }
+        }
+      }
+
       parsedData.modelUsed = response.modelUsed;
+      parsedData.wordCount = wordCount;
+      parsedData.processingMode = processingMode;
       res.setHeader("x-model-used", response.modelUsed);
       res.json(parsedData);
     } catch (error: any) {
       console.error("Gemini document topic generation failed:", error);
       res.status(500).json({ error: error.message || "Failed to parse document topics. Please check your document and try again." });
+    }
+  });
+
+  // API Route: process a single chunk from a large document (>20,000 words)
+  app.post("/api/process-document-chunk", async (req: any, res: any) => {
+    const { chunkIndex } = req.body;
+    try {
+      const { chunk, totalChunks, focus = "" } = req.body;
+      if (!chunk) {
+        return res.status(400).json({ error: "Chunk text content is required", chunkIndex });
+      }
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(400).json({
+          error: "Gemini API key is not configured in Secrets registry.",
+          chunkIndex,
+        });
+      }
+
+      const prompt = `
+        You are analyzing CHUNK ${(chunkIndex ?? 0) + 1} of ${totalChunks ?? "?"} from a large document.
+        The text at the very start and very end of this chunk may overlap with adjacent chunks — focus only on topics that are substantially present in the MIDDLE portion of this chunk.
+
+        Document Chunk ${(chunkIndex ?? 0) + 1}/${totalChunks ?? "?"}:
+        """
+        ${chunk}
+        """
+
+        Focus area (if any): "${focus || "Standard full parsing"}"
+
+        INSTRUCTIONS:
+        1. Identify 2 to 5 distinct study topics clearly and substantially present in this chunk.
+        2. Skip any topic that appears cut off at the very start (incomplete at chunk beginning) or very end — it will be captured by the adjacent chunk.
+        3. For each complete topic, extract the EXACT verbatim source text slice from this chunk into 'sourceText'.
+        4. Provide an elegant topic name, short description, and realistic study duration.
+      `;
+
+      const response = await generateWithRetry({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          systemInstruction:
+            "You are an educational tutor that identifies study topics from document chunks, returning structured JSON.",
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              topics: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    name: { type: Type.STRING },
+                    description: { type: Type.STRING },
+                    duration: { type: Type.STRING },
+                    sourceText: { type: Type.STRING },
+                  },
+                  required: ["name", "description", "duration", "sourceText"],
+                },
+              },
+            },
+            required: ["topics"],
+          },
+        },
+      });
+
+      const responseText = response.text || "";
+      const parsedData = JSON.parse(responseText.trim());
+
+      // Cap sourceText at 4,000 words
+      const SOURCE_WORD_CAP = 4000;
+      for (const topic of parsedData.topics || []) {
+        if (topic.sourceText) {
+          const stWords = topic.sourceText.trim().split(/\s+/);
+          if (stWords.length > SOURCE_WORD_CAP) {
+            topic.sourceText = stWords.slice(0, SOURCE_WORD_CAP).join(" ");
+            topic.sourceTextCapped = true;
+          }
+        }
+      }
+
+      res.json({ topics: parsedData.topics || [], chunkIndex, modelUsed: response.modelUsed });
+    } catch (error: any) {
+      console.error(`Chunk ${chunkIndex ?? "?"} processing failed:`, error);
+      res.status(500).json({
+        error: error.message || "Failed to process document chunk.",
+        chunkIndex: chunkIndex ?? -1,
+      });
     }
   });
 
@@ -1244,6 +1410,16 @@ async function startServer() {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
+
+  // Global error-catching middleware — returns structured JSON instead of crashing
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error("Unhandled server error:", err?.message || err);
+    const status = err?.status || err?.statusCode || 500;
+    res.status(status).json({
+      error: err?.message || "An unexpected server error occurred.",
+      code: err?.code || "INTERNAL_ERROR",
+    });
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
