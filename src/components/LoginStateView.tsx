@@ -101,8 +101,6 @@ export default function LoginStateView({ onLogin }: LoginStateViewProps) {
   onLogin(resolvedName, email.trim(), uid);
 } catch (err: any) {
 
-      onLogin(authMode === "signup" ? name.trim() : "Learner", email.trim(), uid);
-    } catch (err: any) {
       console.error("Firebase auth handler failed:", err);
       
       if (err?.code === "auth/email-already-in-use") {
