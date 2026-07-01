@@ -3,6 +3,8 @@ import { LayoutDashboard, ArrowRight, Trophy, Flame, Play, BookOpen, Clock, Awar
 import { motion } from "motion/react";
 import { QuizHistoryEntry, SavedFlashcard, MilestoneBadge } from "../types";
 import QuizTrendsChart from "./QuizTrendsChart";
+import { firebaseSignOut } from "../firebase";
+
 
 interface DashboardStateViewProps {
   onNext: () => void;
