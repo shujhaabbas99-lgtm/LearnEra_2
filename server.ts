@@ -1421,9 +1421,17 @@ ${sampleText}
     });
   });
 
+if (!process.env.VERCEL) {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);
   });
 }
 
-startServer();
+return app;
+}
+
+const appPromise = startServer();
+export default async (req: any, res: any) => {
+const app = await appPromise;
+app(req, res);
+};
