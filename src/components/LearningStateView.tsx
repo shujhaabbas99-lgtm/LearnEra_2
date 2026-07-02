@@ -1,3 +1,5 @@
+import { renderMathText } from "../utils/renderMathText";
+import { cleanForSpeech } from "../utils/cleanForSpeech";
 import React, { useEffect, useState } from "react";
 import { GraduationCap, ArrowRight, ArrowLeft, Sparkles, Lightbulb, ClipboardList, Loader2, AlertCircle, RefreshCw, BookOpen, Compass, HelpCircle, Info } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
