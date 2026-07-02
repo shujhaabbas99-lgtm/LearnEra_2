@@ -187,7 +187,8 @@ export default function LearningStateView({
       }
     } else {
       window.speechSynthesis.cancel();
-      const textToSpeak = `${selectedTopic}. Explanation. ${content?.explanation}.`;
+      const cleanExplanation = cleanForSpeech(content?.explanation || "");
+const textToSpeak = `${selectedTopic}. Explanation. ${cleanExplanation}.`;
       const utter = new SpeechSynthesisUtterance(textToSpeak);
       utter.onend = () => {
         setIsSpeaking(false);
