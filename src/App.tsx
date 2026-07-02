@@ -109,42 +109,43 @@ export default function App() {
   // browserLocalPersistence almost immediately (<100 ms), so the loading flash
   // is imperceptible when localStorage data already exists.
   useEffect(() => {
-    const unsub = onFirebaseAuthChange(async (firebaseUser) => {
-      if (firebaseUser) {
-        setUserId(firebaseUser.uid);
-        // Only pull Firestore data when there is no local cache — this is the
-        // "new device" restore path. Existing-device users already have fresh
-        // state in memory from the localStorage initializer.
-        if (!savedData) {
-          const profile = await getUserProfile(firebaseUser.uid);
-          if (profile && (profile.userName || profile.curriculumLevel)) {
-            setUserName(profile.userName || "");
-            setUserEmail(profile.userEmail || "");
-            setCurriculumLevel(profile.curriculumLevel || "");
-            setQuizHistory(profile.quizHistory || []);
-            setSubjectDifficulties(profile.subjectDifficulties || {});
-            setCustomSubjects(profile.customSubjects || []);
-            setTopicsLearnedCount(profile.topicsLearnedCount || 0);
-            setTopicStatuses(profile.topicStatuses || {});
-            setTotalTimeStudied(profile.totalTimeStudied || 0);
-            setTimeSpentPerTopic(profile.timeSpentPerTopic || {});
-            setTimeStudiedByDate(profile.timeStudiedByDate || {});
-            setSavedFlashcards(profile.savedFlashcards || []);
-            setQuestionBank(profile.questionBank || []);
-            setDataLoadedFromLocalStorage(true);
-            setCurrentState(
-              profile.curriculumLevel
-                ? AppState.SUBJECT_SELECTION_STATE
-                : AppState.ONBOARDING_STATE,
-            );
-          }
+  const unsub = onFirebaseAuthChange(async (firebaseUser) => {
+    if (firebaseUser) {
+      setUserId(firebaseUser.uid);
+      
+      const profile = await getUserProfile(firebaseUser.uid);
+      
+      if (profile) {
+        setUserName(profile.userName || "");
+        setUserEmail(profile.userEmail || "");
+        setCurriculumLevel(profile.curriculumLevel || "");
+        setQuizHistory(profile.quizHistory || []);
+        setSubjectDifficulties(profile.subjectDifficulties || {});
+        setCustomSubjects(profile.customSubjects || []);
+        setTopicsLearnedCount(profile.topicsLearnedCount || 0);
+        setTopicStatuses(profile.topicStatuses || {});
+        setTotalTimeStudied(profile.totalTimeStudied || 0);
+        setTimeSpentPerTopic(profile.timeSpentPerTopic || {});
+        setTimeStudiedByDate(profile.timeStudiedByDate || {});
+        setSavedFlashcards(profile.savedFlashcards || []);
+        setQuestionBank(profile.questionBank || []);
+        
+        if (profile.curriculumLevel) {
+          setCurrentState(AppState.SUBJECT_SELECTION_STATE);
+        } else {
+          setCurrentState(AppState.ONBOARDING_STATE);
         }
+      } else {
+        setCurrentState(AppState.ONBOARDING_STATE);
       }
-      // Auth state resolved — stop blocking the UI
-      setAuthInitializing(false);
-    });
-    return () => unsub();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    } else {
+      setCurrentState(AppState.LOGIN_STATE);
+    }
+    setAuthInitializing(false);
+  });
+  return () => unsub();
+}, []);
+ // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLogoClick = () => {
     setLogoClicks((prev) => {
