@@ -96,7 +96,7 @@ export default function LearningStateView({
       return () => clearTimeout(timer);
     }
   }, [confirmationMessage]);
-  
+
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isSpeechPaused, setIsSpeechPaused] = useState(false);
 
@@ -134,7 +134,7 @@ export default function LearningStateView({
       if (data.longAnswers && Array.isArray(data.longAnswers)) {
         const answersMap: Record<string, string> = {};
         const savedQAs: { question: string; answer: string }[] = [];
-        
+
         content.examQAs.forEach((item) => {
           const match = data.longAnswers.find((la: any) => 
             la.question.trim().toLowerCase() === item.question.trim().toLowerCase()
@@ -151,7 +151,7 @@ export default function LearningStateView({
 
         setLongAnswers(answersMap);
         setAnswersType("long");
-        
+
         if (onSaveQAPairs && savedQAs.length > 0) {
           onSaveQAPairs(savedQAs);
         }
@@ -176,7 +176,7 @@ export default function LearningStateView({
 
   const handleSpeak = () => {
     if (!window.speechSynthesis) return;
-    
+
     if (isSpeaking) {
       if (isSpeechPaused) {
         window.speechSynthesis.resume();
@@ -188,7 +188,7 @@ export default function LearningStateView({
     } else {
       window.speechSynthesis.cancel();
       const cleanExplanation = cleanForSpeech(content?.explanation || "");
-const textToSpeak = `${selectedTopic}. Explanation. ${cleanExplanation}.`;
+      const textToSpeak = `${selectedTopic}. Explanation. ${cleanExplanation}.`;
       const utter = new SpeechSynthesisUtterance(textToSpeak);
       utter.onend = () => {
         setIsSpeaking(false);
@@ -336,7 +336,7 @@ const textToSpeak = `${selectedTopic}. Explanation. ${cleanExplanation}.`;
             <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 font-mono tracking-widest uppercase block">
               {selectedSubject || "GENERAL DISCIPLINE"}
             </span>
-            
+
             {/* Interactive Difficulty Badge */}
             <div className="relative inline-block">
               <button
@@ -430,7 +430,7 @@ const textToSpeak = `${selectedTopic}. Explanation. ${cleanExplanation}.`;
             <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-lg w-5/6 animate-pulse"></div>
             <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-lg w-full animate-pulse"></div>
             <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded-lg w-4/5 animate-pulse"></div>
-            
+
             <div className="h-24 bg-slate-50 dark:bg-slate-900/60 border border-slate-150 dark:border-slate-800 rounded-2xl w-full animate-pulse mt-6"></div>
           </div>
         </div>
@@ -557,7 +557,7 @@ const textToSpeak = `${selectedTopic}. Explanation. ${cleanExplanation}.`;
                     className="p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl hover:border-slate-205 dark:hover:border-slate-700 transition-all shadow-3xs space-y-1.5"
                     id={`subconcept-card-${idx}`}
                   >
-                    <span className="inline-flex px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-350 font-mono font-bold text-[9px]">
+                    <span className="inline-flex px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-705 dark:text-slate-350 font-mono font-bold text-[9px]">
                       0{idx + 1}
                     </span>
                     <h4 className="font-sans font-extrabold text-xs text-slate-909 dark:text-slate-100 tracking-tight">
@@ -583,7 +583,7 @@ const textToSpeak = `${selectedTopic}. Explanation. ${cleanExplanation}.`;
                 <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 tracking-tight">Syllabus Connections</h4>
               </div>
               <p className="text-[11px] md:text-xs text-slate-605 dark:text-slate-400 leading-relaxed font-medium">
-                {content.connections}
+                {renderMathText(content.connections)}
               </p>
             </div>
           )}
@@ -601,7 +601,7 @@ const textToSpeak = `${selectedTopic}. Explanation. ${cleanExplanation}.`;
                 {content.commonMisconceptions.map((mis, idx) => (
                   <li key={idx} className="flex items-start gap-2.5 text-[11px] md:text-xs text-slate-600 font-medium">
                     <span className="text-rose-500 font-bold shrink-0 mt-0.5 select-none text-xs">⚠️</span>
-                    <span className="leading-relaxed">{mis}</span>
+                    <span className="leading-relaxed">{renderMathText(mis)}</span>
                   </li>
                 ))}
               </ul>
@@ -622,7 +622,7 @@ const textToSpeak = `${selectedTopic}. Explanation. ${cleanExplanation}.`;
                 <h4 className="text-xs font-bold text-slate-800 tracking-tight">Relatable Real-World Case</h4>
               </div>
               <p className="text-[11px] md:text-xs text-slate-600 leading-relaxed font-medium">
-                {content.example}
+                {renderMathText(content.example)}
               </p>
             </div>
           )}
@@ -643,7 +643,7 @@ const textToSpeak = `${selectedTopic}. Explanation. ${cleanExplanation}.`;
                 </div>
               </div>
               <p className="text-[11px] md:text-xs text-slate-600 dark:text-slate-350 leading-relaxed font-medium">
-                {content.caseStudy}
+                {renderMathText(content.caseStudy)}
               </p>
             </div>
           )}
@@ -661,7 +661,7 @@ const textToSpeak = `${selectedTopic}. Explanation. ${cleanExplanation}.`;
                 {content.recap.map((point, idx) => (
                   <li key={idx} className="flex items-start gap-2 text-[11px] md:text-xs text-slate-600 font-medium">
                     <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 mt-1.5 shrink-0 animate-pulse"></span>
-                    <span className="leading-relaxed">{point}</span>
+                    <span className="leading-relaxed">{renderMathText(point)}</span>
                   </li>
                 ))}
               </ul>
@@ -716,7 +716,7 @@ const textToSpeak = `${selectedTopic}. Explanation. ${cleanExplanation}.`;
                           Q{idx + 1}
                         </span>
                         <p className="text-xs font-bold text-slate-800 dark:text-slate-100 leading-normal pt-0.5 select-all">
-                          {item.question}
+                          {renderMathText(item.question)}
                         </p>
                       </div>
 
@@ -725,7 +725,7 @@ const textToSpeak = `${selectedTopic}. Explanation. ${cleanExplanation}.`;
                           A
                         </span>
                         <div className="flex-1 text-[11.5px] font-medium text-slate-605 dark:text-slate-300 leading-relaxed pt-0.5">
-                          {currentAnswer}
+                          {renderMathText(currentAnswer)}
                         </div>
                       </div>
                     </div>
@@ -782,7 +782,7 @@ const textToSpeak = `${selectedTopic}. Explanation. ${cleanExplanation}.`;
                 {content.conceptualPointers.map((pointer, idx) => (
                   <li key={idx} className="flex items-start gap-2.5 text-[11px] md:text-sm text-slate-650 font-medium">
                     <span className="h-1.5 w-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0"></span>
-                    <span className="leading-relaxed text-left flex-1">{pointer}</span>
+                    <span className="leading-relaxed text-left flex-1">{renderMathText(pointer)}</span>
                   </li>
                 ))}
               </ul>
@@ -792,10 +792,10 @@ const textToSpeak = `${selectedTopic}. Explanation. ${cleanExplanation}.`;
           {/* Prompt Action Area */}
           <div className="pt-4 border-t border-slate-100 dark:border-slate-805 flex items-center justify-between gap-4">
             <div className="text-left hidden sm:block">
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider block">READY FOR ASSESSMENT?</span>
+              <span className="text-[10px] text-slate-405 dark:text-slate-500 font-bold uppercase tracking-wider block">READY FOR ASSESSMENT?</span>
               <span className="text-[11px] text-indigo-605 dark:text-indigo-400 font-semibold font-mono">Unlock next quiz state</span>
             </div>
-            
+
             <button
               onClick={onNext}
               disabled={loading || !content}
