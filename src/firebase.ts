@@ -26,14 +26,18 @@ import {
 } from "firebase/firestore";
 import { Curriculum, StudyLog, UserStats } from "./types";
 
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCWDemw3UgxMYqesHNheilrk94u7w3vMv4",
-  authDomain: "learnerera-10597.firebaseapp.com",
-  projectId: "learnerera-10597",
-  storageBucket: "learnerera-10597.firebasestorage.app",
+  apiKey: "AIzaSyCWDeww3UgxHYqasHNhailrk94u7w3vMw4",
+  authDomain: "learnera-10597.firebaseapp.com",
+  projectId: "learnera-10597",
+  storageBucket: "learnera-10597.firebasestorage.app",
   messagingSenderId: "918984767974",
   appId: "1:918984767974:web:ef71e73bb68cd70799fe27"
 };
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 
 
 
