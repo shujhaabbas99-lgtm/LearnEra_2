@@ -533,7 +533,7 @@ export default function LearningStateView({
           <div className="space-y-4 text-slate-700 dark:text-slate-300 text-xs md:text-[13px] leading-relaxed font-sans font-medium" id="learning-explanation-box">
             {paragraphs.map((para, idx) => (
               <p key={idx} className="first-of-type:font-semibold first-of-type:text-slate-800 dark:first-of-type:text-slate-200">
-                {para}
+                {renderMathText(para)}
               </p>
             ))}
           </div>
